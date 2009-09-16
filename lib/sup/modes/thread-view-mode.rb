@@ -132,7 +132,12 @@ EOS
     @layout[earliest].state = :detailed if earliest.has_label?(:unread) || @thread.size == 1
 
     @thread.remove_label :unread
+    save_state
     regen_text
+  end
+
+  def save_state
+    @thread.save_state Index
   end
 
   def draw_line ln, opts={}
@@ -260,6 +265,7 @@ EOS
 
     return unless new_labels
     @thread.labels = Set.new(reserved_labels) + new_labels
+    save_state
     new_labels.each { |l| LabelManager << l }
     update
     UpdateManager.relay self, :labeled, @thread.first
@@ -278,8 +284,10 @@ EOS
   def toggle_label m, label
     if m.has_label? label
       m.remove_label label
+      save_state
     else
       m.add_label label
+      save_state
     end
     ## TODO: don't recalculate EVERYTHING just to add a stupid little
     ## star to the display
@@ -502,6 +510,7 @@ EOS
   def archive_and_then op
     dispatch op do
       @thread.remove_label :inbox
+      save_state
       UpdateManager.relay self, :archived, @thread.first
     end
   end
@@ -509,6 +518,7 @@ EOS
   def spam_and_then op
     dispatch op do
       @thread.apply_label :spam
+      save_state
       UpdateManager.relay self, :spammed, @thread.first
     end
   end
@@ -516,6 +526,7 @@ EOS
   def delete_and_then op
     dispatch op do
       @thread.apply_label :deleted
+      save_state
       UpdateManager.relay self, :deleted, @thread.first
     end
   end
@@ -523,6 +534,7 @@ EOS
   def unread_and_then op
     dispatch op do
       @thread.apply_label :unread
+      save_state
       UpdateManager.relay self, :unread, @thread.first
     end
   end
