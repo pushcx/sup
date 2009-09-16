@@ -82,6 +82,10 @@ EOS
     end
   end
 
+  def save_thread_state t
+    t.save_state Index
+  end
+
   def unsaved?; dirty? end
   def lines; @text.length; end
   def [] i; @text[i]; end
@@ -246,17 +250,21 @@ EOS
     pos = curpos
     if t.has_label? :starred # if ANY message has a star
       t.remove_label :starred # remove from all
+      save_thread_state t
       UpdateManager.relay self, :unstarred, t.first
       lambda do
         t.first.add_label :starred
+        save_thread_state t
         UpdateManager.relay self, :starred, t.first
         regen_text
       end
     else
       t.first.add_label :starred # add only to first
+      save_thread_state t
       UpdateManager.relay self, :starred, t.first
       lambda do
         t.remove_label :starred
+        save_thread_state t
         UpdateManager.relay self, :unstarred, t.first
         regen_text
       end
@@ -283,17 +291,21 @@ EOS
     pos = curpos
     if t.has_label? :inbox
       t.remove_label :inbox
+      save_thread_state t
       UpdateManager.relay self, :archived, t.first
       lambda do
         thread.apply_label :inbox
         update_text_for_line pos
+        save_thread_state t
         UpdateManager.relay self,:unarchived, thread.first
       end
     else
       t.apply_label :inbox
+      save_thread_state t
       UpdateManager.relay self, :unarchived, t.first
       lambda do
         thread.remove_label :inbox
+        save_thread_state t
         update_text_for_line pos
         UpdateManager.relay self, :unarchived, thread.first
       end
@@ -305,19 +317,23 @@ EOS
     thread = t
     if t.has_label? :spam
       t.remove_label :spam
+      save_thread_state t
       add_or_unhide t.first
       UpdateManager.relay self, :unspammed, t.first
       lambda do
         thread.apply_label :spam
+        save_thread_state t
         self.hide_thread thread
         UpdateManager.relay self,:spammed, thread.first
       end
     else
       t.apply_label :spam
+      save_thread_state t
       hide_thread t
       UpdateManager.relay self, :spammed, t.first
       lambda do
         thread.remove_label :spam
+        save_thread_state t
         add_or_unhide thread.first
         UpdateManager.relay self,:unspammed, thread.first
       end
@@ -328,19 +344,23 @@ EOS
   def actually_toggle_deleted t
     if t.has_label? :deleted
       t.remove_label :deleted
+      save_thread_state t
       add_or_unhide t.first
       UpdateManager.relay self, :undeleted, t.first
       lambda do
         t.apply_label :deleted
+        save_thread_state t
         hide_thread t
         UpdateManager.relay self, :deleted, t.first
       end
     else
       t.apply_label :deleted
       hide_thread t
+      save_thread_state t
       UpdateManager.relay self, :deleted, t.first
       lambda do
         t.remove_label :deleted
+        save_thread_state t
         add_or_unhide t.first
         UpdateManager.relay self, :undeleted, t.first
       end
@@ -480,6 +500,9 @@ EOS
           t.save_state Index
         end
       end
+
+      warn("Saved #{dirty_threads.length} threads")
+      BufferManager.say("Saved #{dirty_threads.length} threads")
     end
   end
 
@@ -536,11 +559,13 @@ EOS
     return unless user_labels
 
     thread.labels = Set.new(keepl) + user_labels
+    save_thread_state thread
     user_labels.each { |l| LabelManager << l }
     update_text_for_line curpos
 
     UndoManager.register "labeling thread" do
       thread.labels = old_labels
+      save_thread_state thread
       update_text_for_line pos
       UpdateManager.relay self, :labeled, thread.first
     end
@@ -570,6 +595,7 @@ EOS
           LabelManager << l
         end
       end
+      save_thread_state t
       UpdateManager.relay self, :labeled, t.first
     end
 
@@ -578,6 +604,7 @@ EOS
     UndoManager.register "labeling #{threads.size.pluralize 'thread'}" do
       threads.zip(old_labels).map do |t, old_labels|
         t.labels = old_labels
+        save_thread_state t
         UpdateManager.relay self, :labeled, t.first
       end
       regen_text
