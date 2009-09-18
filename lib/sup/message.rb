@@ -152,6 +152,13 @@ class Message
     @list_unsubscribe = nil
   end
 
+  def copy_state m
+    return if (@refs == m.refs) && (@labels == m.labels)
+    @refs = m.refs.dup
+    @labels = m.labels.dup
+    @dirty = m.dirty?
+  end
+
   def add_ref ref
     @refs << ref
     @dirty = true

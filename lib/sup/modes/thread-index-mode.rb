@@ -53,6 +53,7 @@ EOS
     super()
     @mutex = Mutex.new # covers the following variables:
     @threads = {}
+    @messages = {}
     @size_widget_width = nil
     @size_widgets = {}
     @tags = Tagger.new self
@@ -154,6 +155,22 @@ EOS
   
   ## overwrite me!
   def is_relevant? m; false; end
+
+  def handle_message_update sender, m
+    msgid = m.id
+    t = thread_containing(m)
+    if t
+      l = @lines[t] or return
+      m2 = @ts.message_for_id msgid
+      m2.copy_state m
+      update_text_for_line l
+    else
+      m2 = Index.build_message msgid
+      add_or_unhide m2
+    end
+    update
+    BufferManager.draw_screen
+  end
 
   def undo
   end
