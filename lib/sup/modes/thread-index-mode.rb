@@ -93,7 +93,6 @@ EOS
 
   def reload
     drop_all_threads
-    UndoManager.clear
     BufferManager.draw_screen
     load_threads :num => buffer.content_height
   end
@@ -220,7 +219,6 @@ EOS
   end
 
   def undo
-    UndoManager.undo
   end
 
   def update
@@ -245,47 +243,31 @@ EOS
     end
   end
 
-  ## returns an undo lambda
   def actually_toggle_starred t
     pos = curpos
     if t.has_label? :starred # if ANY message has a star
       t.remove_label :starred # remove from all
       save_thread_state t
       UpdateManager.relay self, :unstarred, t.first
-      lambda do
-        t.first.add_label :starred
-        save_thread_state t
-        UpdateManager.relay self, :starred, t.first
-        regen_text
-      end
     else
       t.first.add_label :starred # add only to first
       save_thread_state t
       UpdateManager.relay self, :starred, t.first
-      lambda do
-        t.remove_label :starred
-        save_thread_state t
-        UpdateManager.relay self, :unstarred, t.first
-        regen_text
-      end
     end
   end  
 
   def toggle_starred 
     t = cursor_thread or return
-    undo = actually_toggle_starred t
-    UndoManager.register "toggling thread starred status", undo
+    actually_toggle_starred t
     update_text_for_line curpos
     cursor_down
   end
 
   def multi_toggle_starred threads
-    UndoManager.register "toggling #{threads.size.pluralize 'thread'} starred status",
-      threads.map { |t| actually_toggle_starred t }
+    threads.each { |t| actually_toggle_starred t }
     regen_text
   end
 
-  ## returns an undo lambda
   def actually_toggle_archived t
     thread = t
     pos = curpos
@@ -293,26 +275,13 @@ EOS
       t.remove_label :inbox
       save_thread_state t
       UpdateManager.relay self, :archived, t.first
-      lambda do
-        thread.apply_label :inbox
-        update_text_for_line pos
-        save_thread_state t
-        UpdateManager.relay self,:unarchived, thread.first
-      end
     else
       t.apply_label :inbox
       save_thread_state t
       UpdateManager.relay self, :unarchived, t.first
-      lambda do
-        thread.remove_label :inbox
-        save_thread_state t
-        update_text_for_line pos
-        UpdateManager.relay self, :unarchived, thread.first
-      end
     end
   end
 
-  ## returns an undo lambda
   def actually_toggle_spammed t
     thread = t
     if t.has_label? :spam
@@ -320,63 +289,36 @@ EOS
       save_thread_state t
       add_or_unhide t.first
       UpdateManager.relay self, :unspammed, t.first
-      lambda do
-        thread.apply_label :spam
-        save_thread_state t
-        self.hide_thread thread
-        UpdateManager.relay self,:spammed, thread.first
-      end
     else
       t.apply_label :spam
       save_thread_state t
       hide_thread t
       UpdateManager.relay self, :spammed, t.first
-      lambda do
-        thread.remove_label :spam
-        save_thread_state t
-        add_or_unhide thread.first
-        UpdateManager.relay self,:unspammed, thread.first
-      end
     end
   end
 
-  ## returns an undo lambda
   def actually_toggle_deleted t
     if t.has_label? :deleted
       t.remove_label :deleted
       save_thread_state t
       add_or_unhide t.first
       UpdateManager.relay self, :undeleted, t.first
-      lambda do
-        t.apply_label :deleted
-        save_thread_state t
-        hide_thread t
-        UpdateManager.relay self, :deleted, t.first
-      end
     else
       t.apply_label :deleted
       hide_thread t
       save_thread_state t
       UpdateManager.relay self, :deleted, t.first
-      lambda do
-        t.remove_label :deleted
-        save_thread_state t
-        add_or_unhide t.first
-        UpdateManager.relay self, :undeleted, t.first
-      end
     end
   end
 
   def toggle_archived 
     t = cursor_thread or return
-    undo = actually_toggle_archived t
-    UndoManager.register "deleting/undeleting thread #{t.first.id}", undo, lambda { update_text_for_line curpos }
+    actually_toggle_archived t
     update_text_for_line curpos
   end
 
   def multi_toggle_archived threads
-    undos = threads.map { |t| actually_toggle_archived t }
-    UndoManager.register "deleting/undeleting #{threads.size.pluralize 'thread'}", undos, lambda { regen_text }
+    threads.each { |t| actually_toggle_archived t }
     regen_text
   end
 
@@ -437,9 +379,7 @@ EOS
   ## see deleted or spam emails, and when you undelete or unspam them
   ## you also want them to disappear immediately.
   def multi_toggle_spam threads
-    undos = threads.map { |t| actually_toggle_spammed t }
-    UndoManager.register "marking/unmarking  #{threads.size.pluralize 'thread'} as spam",
-                         undos, lambda { regen_text }
+    threads.each { |t| actually_toggle_spammed t }
     regen_text
   end
 
@@ -450,9 +390,7 @@ EOS
 
   ## see comment for multi_toggle_spam
   def multi_toggle_deleted threads
-    undos = threads.map { |t| actually_toggle_deleted t }
-    UndoManager.register "deleting/undeleting #{threads.size.pluralize 'thread'}",
-                         undos, lambda { regen_text }
+    threads.each { |t| actually_toggle_deleted t }
     regen_text
   end
 
@@ -463,14 +401,6 @@ EOS
 
   ## m-m-m-m-MULTI-KILL
   def multi_kill threads
-    UndoManager.register "killing #{threads.size.pluralize 'thread'}" do
-      threads.each do |t|
-        t.remove_label :killed
-        add_or_unhide t.first
-      end
-      regen_text
-    end
-
     threads.each do |t|
       t.apply_label :killed
       hide_thread t
@@ -563,13 +493,6 @@ EOS
     user_labels.each { |l| LabelManager << l }
     update_text_for_line curpos
 
-    UndoManager.register "labeling thread" do
-      thread.labels = old_labels
-      save_thread_state thread
-      update_text_for_line pos
-      UpdateManager.relay self, :labeled, thread.first
-    end
-
     UpdateManager.relay self, :labeled, thread.first
   end
 
@@ -600,15 +523,6 @@ EOS
     end
 
     regen_text
-
-    UndoManager.register "labeling #{threads.size.pluralize 'thread'}" do
-      threads.zip(old_labels).map do |t, old_labels|
-        t.labels = old_labels
-        save_thread_state t
-        UpdateManager.relay self, :labeled, t.first
-      end
-      regen_text
-    end
   end
 
   def reply type_arg=nil

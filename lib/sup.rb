@@ -129,7 +129,6 @@ module Redwood
     Redwood::UpdateManager.init
     Redwood::PollManager.init
     Redwood::CryptoManager.init
-    Redwood::UndoManager.init
     Redwood::SourceManager.init
   end
 
@@ -286,7 +285,6 @@ require "sup/tagger"
 require "sup/draft"
 require "sup/poll"
 require "sup/crypto"
-require "sup/undo"
 require "sup/horizontal-selector"
 require "sup/modes/line-cursor-mode"
 require "sup/modes/help-mode"
