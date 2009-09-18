@@ -37,7 +37,6 @@ EOS
     k.add :toggle_spam, "Mark/unmark thread as spam", 'S'
     k.add :toggle_deleted, "Delete/undelete thread", 'd'
     k.add :kill, "Kill thread (never to be seen in inbox again)", '&'
-    k.add :save, "Save changes now", '$'
     k.add :jump_to_next_new, "Jump to next new thread", :tab
     k.add :reply, "Reply to latest message in a thread", 'r'
     k.add :reply_all, "Reply to all participants of the latest message in a thread", 'G'
@@ -54,7 +53,6 @@ EOS
     super()
     @mutex = Mutex.new # covers the following variables:
     @threads = {}
-    @hidden_threads = {}
     @size_widget_width = nil
     @size_widgets = {}
     @tags = Tagger.new self
@@ -72,8 +70,6 @@ EOS
 
     UpdateManager.register self
 
-    @save_thread_mutex = Mutex.new
-
     @last_load_more_size = nil
     to_load_more do |size|
       next if @last_load_more_size == 0
@@ -86,7 +82,6 @@ EOS
     t.save_state Index
   end
 
-  def unsaved?; dirty? end
   def lines; @text.length; end
   def [] i; @text[i]; end
   def contains_thread? t; @threads.include?(t) end
@@ -157,74 +152,42 @@ EOS
     end
   end
   
-  def handle_single_message_labeled_update sender, m
-    ## no need to do anything different here; we don't differentiate 
-    ## messages from their containing threads
-    handle_labeled_update sender, m
-  end
-
-  def handle_labeled_update sender, m
-    if(t = thread_containing(m)) 
-      l = @lines[t] or return
-      update_text_for_line l
-    elsif is_relevant?(m)
-      add_or_unhide m
-    end
-  end
-
-  def handle_simple_update sender, m
-    t = thread_containing(m) or return
-    l = @lines[t] or return
-    update_text_for_line l
-  end
-
-  %w(read unread archived starred unstarred).each do |state|
-    define_method "handle_#{state}_update" do |*a|
-      handle_simple_update(*a)
-    end
-  end
-
   ## overwrite me!
   def is_relevant? m; false; end
 
-  def handle_added_update sender, m
-    add_or_unhide m
-    BufferManager.draw_screen
-  end
-
-  def handle_single_message_deleted_update sender, m
-    @ts_mutex.synchronize do
-      return unless @ts.contains? m
-      @ts.remove_id m.id
-    end
-    update
-  end
-
-  def handle_deleted_update sender, m
-    t = @ts_mutex.synchronize { @ts.thread_for m }
-    return unless t
-    hide_thread t
-    update
-  end
-
-  def handle_spammed_update sender, m
-    t = @ts_mutex.synchronize { @ts.thread_for m }
-    return unless t
-    hide_thread t
-    update
-  end
-
-  def handle_undeleted_update sender, m
-    add_or_unhide m
-  end
-
   def undo
+  end
+
+  def add_thread_label thread, label
+    t.first.add_label label # add only to first
+    save_thread_state thread
+    UpdateManager.relay self, :message, thread.first
+  end
+
+  def apply_thread_label thread, label
+    LabelManager << l
+    t.apply_label label
+    save_thread_state thread
+    UpdateManager.relay self, :message, thread.first
+  end
+
+  def set_thread_labels thread, labels
+    labels.each { |l| LabelManager << l }
+    thread.labels = labels
+    save_thread_state thread
+    UpdateManager.relay self, :message, thread.first
+  end
+
+  def remove_thread_label thread, label
+    t.remove_label label # remove from all
+    save_thread_state thread
+    UpdateManager.relay self, :message, thread.first
   end
 
   def update
     @mutex.synchronize do
       ## let's see you do THIS in python
-      @threads = @ts.threads.select { |t| !@hidden_threads[t] }.sort_by { |t| [t.date, t.first.id] }.reverse
+      @threads = @ts.threads.sort_by { |t| [t.date, t.first.id] }.reverse
       @size_widgets = @threads.map { |t| size_widget_for_thread t }
       @size_widget_width = @size_widgets.max_of { |w| w.display_length }
     end
@@ -243,94 +206,48 @@ EOS
     end
   end
 
-  def actually_toggle_starred t
-    pos = curpos
-    if t.has_label? :starred # if ANY message has a star
-      t.remove_label :starred # remove from all
-      save_thread_state t
-      UpdateManager.relay self, :unstarred, t.first
+  def actually_toggle_label thread, label, shallow
+    if thread.has_label? label
+      remove_thread_label thread, label
+    elsif shallow
+      add_thread_label thread, label
     else
-      t.first.add_label :starred # add only to first
-      save_thread_state t
-      UpdateManager.relay self, :starred, t.first
+      apply_thread_label thread, label
     end
-  end  
+  end
 
   def toggle_starred 
     t = cursor_thread or return
-    actually_toggle_starred t
+    actually_toggle_label t, :starred, true
     update_text_for_line curpos
     cursor_down
   end
 
   def multi_toggle_starred threads
-    threads.each { |t| actually_toggle_starred t }
+    threads.each { |t| actually_toggle_label t, :starred, true }
     regen_text
-  end
-
-  def actually_toggle_archived t
-    thread = t
-    pos = curpos
-    if t.has_label? :inbox
-      t.remove_label :inbox
-      save_thread_state t
-      UpdateManager.relay self, :archived, t.first
-    else
-      t.apply_label :inbox
-      save_thread_state t
-      UpdateManager.relay self, :unarchived, t.first
-    end
-  end
-
-  def actually_toggle_spammed t
-    thread = t
-    if t.has_label? :spam
-      t.remove_label :spam
-      save_thread_state t
-      add_or_unhide t.first
-      UpdateManager.relay self, :unspammed, t.first
-    else
-      t.apply_label :spam
-      save_thread_state t
-      hide_thread t
-      UpdateManager.relay self, :spammed, t.first
-    end
-  end
-
-  def actually_toggle_deleted t
-    if t.has_label? :deleted
-      t.remove_label :deleted
-      save_thread_state t
-      add_or_unhide t.first
-      UpdateManager.relay self, :undeleted, t.first
-    else
-      t.apply_label :deleted
-      hide_thread t
-      save_thread_state t
-      UpdateManager.relay self, :deleted, t.first
-    end
   end
 
   def toggle_archived 
     t = cursor_thread or return
-    actually_toggle_archived t
+    actually_toggle_label t, :inbox, false
     update_text_for_line curpos
   end
 
   def multi_toggle_archived threads
-    threads.each { |t| actually_toggle_archived t }
+    threads.each { |t| actually_toggle_label t, :inbox, false }
     regen_text
   end
 
   def toggle_new
     t = cursor_thread or return
-    t.toggle_label :unread
+    actually_toggle_label t, :unread, false
     update_text_for_line curpos
     cursor_down
   end
 
   def multi_toggle_new threads
-    threads.each { |t| t.toggle_label :unread }
+    threads.each { |t| actually_toggle_label t, :unread, false }
     regen_text
   end
 
@@ -379,7 +296,7 @@ EOS
   ## see deleted or spam emails, and when you undelete or unspam them
   ## you also want them to disappear immediately.
   def multi_toggle_spam threads
-    threads.each { |t| actually_toggle_spammed t }
+    threads.each { |t| actually_toggle_label t, :spam, false }
     regen_text
   end
 
@@ -390,7 +307,7 @@ EOS
 
   ## see comment for multi_toggle_spam
   def multi_toggle_deleted threads
-    threads.each { |t| actually_toggle_deleted t }
+    threads.each { |t| actually_toggle_label t, :deleted, false }
     regen_text
   end
 
@@ -401,39 +318,54 @@ EOS
 
   ## m-m-m-m-MULTI-KILL
   def multi_kill threads
-    threads.each do |t|
-      t.apply_label :killed
-      hide_thread t
-    end
-
+    threads.each { |t| actually_toggle_label t, :killed, false }
     regen_text
     BufferManager.flash "#{threads.size.pluralize 'thread'} killed."
   end
 
-  def save background=true
-    if background
-      Redwood::reporting_thread("saving thread") { actually_save }
-    else
-      actually_save
-    end
+  def edit_labels
+    thread = cursor_thread or return
+    speciall = (@hidden_labels + LabelManager::RESERVED_LABELS).uniq
+
+    old_labels = thread.labels
+    pos = curpos
+
+    keepl, modifyl = thread.labels.partition { |t| speciall.member? t }
+
+    user_labels = BufferManager.ask_for_labels :label, "Labels for thread: ", modifyl, @hidden_labels
+    return unless user_labels
+
+    new_labels = Set.new(keepl) + user_labels
+    set_thread_labels thread, new_labels
+
+    update_text_for_line curpos
   end
 
-  def actually_save
-    @save_thread_mutex.synchronize do
-      BufferManager.say("Saving contacts...") { ContactManager.instance.save }
-      dirty_threads = @mutex.synchronize { (@threads + @hidden_threads.keys).select { |t| t.dirty? } }
-      next if dirty_threads.empty?
+  def multi_edit_labels threads
+    user_labels = BufferManager.ask_for_labels :labels, "Add/remove labels (use -label to remove): ", [], @hidden_labels
+    return unless user_labels
 
-      BufferManager.say("Saving threads...") do |say_id|
-        dirty_threads.each_with_index do |t, i|
-          BufferManager.say "Saving modified thread #{i + 1} of #{dirty_threads.length}...", say_id
-          t.save_state Index
+    user_labels.map! { |l| (l.to_s =~ /^-/)? [l.to_s.gsub(/^-?/, '').to_sym, true] : [l, false] }
+    hl = user_labels.select { |(l,_)| @hidden_labels.member? l }
+    unless hl.empty?
+      BufferManager.flash "'#{hl}' is a reserved label!"
+      return
+    end
+
+    old_labels = threads.map { |t| t.labels.dup }
+
+    threads.each do |t|
+      user_labels.each do |(l, to_remove)|
+        # XXX inefficient
+        if to_remove
+          remove_thread_label t, l
+        else
+          apply_thread_label t, l
         end
       end
-
-      warn("Saved #{dirty_threads.length} threads")
-      BufferManager.say("Saved #{dirty_threads.length} threads")
     end
+
+    regen_text
   end
 
   def cleanup
@@ -445,7 +377,10 @@ EOS
       sleep 0.1 # TODO: necessary?
       BufferManager.erase_flash
     end
-    save false
+
+    dirty_threads = @mutex.synchronize { @threads.select { |t| t.dirty? } }
+    fail "#{dirty_threads.size} threads dirty" unless dirty_threads.empty?
+
     super
   end
 
@@ -475,55 +410,6 @@ EOS
   end
 
   def apply_to_tagged; @tags.apply_to_tagged; end
-
-  def edit_labels
-    thread = cursor_thread or return
-    speciall = (@hidden_labels + LabelManager::RESERVED_LABELS).uniq
-
-    old_labels = thread.labels
-    pos = curpos
-
-    keepl, modifyl = thread.labels.partition { |t| speciall.member? t }
-
-    user_labels = BufferManager.ask_for_labels :label, "Labels for thread: ", modifyl, @hidden_labels
-    return unless user_labels
-
-    thread.labels = Set.new(keepl) + user_labels
-    save_thread_state thread
-    user_labels.each { |l| LabelManager << l }
-    update_text_for_line curpos
-
-    UpdateManager.relay self, :labeled, thread.first
-  end
-
-  def multi_edit_labels threads
-    user_labels = BufferManager.ask_for_labels :labels, "Add/remove labels (use -label to remove): ", [], @hidden_labels
-    return unless user_labels
-
-    user_labels.map! { |l| (l.to_s =~ /^-/)? [l.to_s.gsub(/^-?/, '').to_sym, true] : [l, false] }
-    hl = user_labels.select { |(l,_)| @hidden_labels.member? l }
-    unless hl.empty?
-      BufferManager.flash "'#{hl}' is a reserved label!"
-      return
-    end
-
-    old_labels = threads.map { |t| t.labels.dup }
-
-    threads.each do |t|
-      user_labels.each do |(l, to_remove)|
-        if to_remove
-          t.remove_label l
-        else
-          t.apply_label l
-          LabelManager << l
-        end
-      end
-      save_thread_state t
-      UpdateManager.relay self, :labeled, t.first
-    end
-
-    regen_text
-  end
 
   def reply type_arg=nil
     t = cursor_thread or return
@@ -587,7 +473,7 @@ EOS
     if (l = lines) == 0
       "line 0 of 0"
     else
-      "line #{curpos + 1} of #{l} #{dirty? ? '*modified*' : ''}"
+      "line #{curpos + 1} of #{l}"
     end
   end
 
@@ -636,8 +522,6 @@ protected
       if (is_relevant?(m) || @ts.is_relevant?(m)) && !@ts.contains?(m)
         @ts.load_thread_for_message m, @load_thread_opts
       end
-
-      @hidden_threads.delete @ts.thread_for(m)
     end
 
     update
@@ -661,17 +545,6 @@ protected
     @tags.drop_all_tags
     initialize_threads
     update
-  end
-
-  def hide_thread t
-    @mutex.synchronize do
-      i = @threads.index(t) or return
-      raise "already hidden" if @hidden_threads[t]
-      @hidden_threads[t] = true
-      @threads.delete_at i
-      @size_widgets.delete_at i
-      @tags.drop_tag_for t
-    end
   end
 
   def update_text_for_line l
@@ -806,8 +679,6 @@ protected
     ]
   end
 
-  def dirty?; @mutex.synchronize { (@hidden_threads.keys + @threads).any? { |t| t.dirty? } } end
-
 private
 
   def default_size_widget_for t
@@ -826,8 +697,81 @@ private
   def initialize_threads
     @ts = ThreadSet.new Index.instance, $config[:thread_by_subject]
     @ts_mutex = Mutex.new
-    @hidden_threads = {}
   end
 end
 
 end
+
+=begin
+  def hide_thread t
+    @mutex.synchronize do
+      i = @threads.index(t) or return
+      raise "already hidden" if @hidden_threads[t]
+      @hidden_threads[t] = true
+      @threads.delete_at i
+      @size_widgets.delete_at i
+      @tags.drop_tag_for t
+    end
+  end
+=end
+=begin
+  def handle_single_message_labeled_update sender, m
+    ## no need to do anything different here; we don't differentiate 
+    ## messages from their containing threads
+    handle_labeled_update sender, m
+  end
+
+  def handle_labeled_update sender, m
+    if(t = thread_containing(m)) 
+      l = @lines[t] or return
+      update_text_for_line l
+    elsif is_relevant?(m)
+      add_or_unhide m
+    end
+  end
+
+  def handle_simple_update sender, m
+    t = thread_containing(m) or return
+    l = @lines[t] or return
+    update_text_for_line l
+  end
+
+  %w(read unread archived starred unstarred).each do |state|
+    define_method "handle_#{state}_update" do |*a|
+      handle_simple_update(*a)
+    end
+  end
+=end
+
+=begin
+  def handle_added_update sender, m
+    add_or_unhide m
+    BufferManager.draw_screen
+  end
+
+  def handle_single_message_deleted_update sender, m
+    @ts_mutex.synchronize do
+      return unless @ts.contains? m
+      @ts.remove_id m.id
+    end
+    update
+  end
+
+  def handle_deleted_update sender, m
+    t = @ts_mutex.synchronize { @ts.thread_for m }
+    return unless t
+    hide_thread t
+    update
+  end
+
+  def handle_spammed_update sender, m
+    t = @ts_mutex.synchronize { @ts.thread_for m }
+    return unless t
+    hide_thread t
+    update
+  end
+
+  def handle_undeleted_update sender, m
+    add_or_unhide m
+  end
+=end
