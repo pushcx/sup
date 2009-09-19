@@ -701,7 +701,7 @@ private
   end
 
   def initialize_threads
-    @ts = ThreadSet.new Index.instance, $config[:thread_by_subject]
+    @ts = ThreadSet.new Index.instance
     @ts_mutex = Mutex.new
   end
 end
