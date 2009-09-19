@@ -60,13 +60,12 @@ EOS
 
     ## these guys, and @text and @lines, are not covered
     @load_thread = nil
-    @load_thread_opts = load_thread_opts
     @hidden_labels = hidden_labels + LabelManager::HIDDEN_RESERVED_LABELS
     @date_width = DATE_WIDTH
 
     @interrupt_search = false
     
-    initialize_threads # defines @ts and @ts_mutex
+    initialize_threads load_thread_opts # defines @ts and @ts_mutex
     update # defines @text and @lines
 
     UpdateManager.register self
@@ -504,7 +503,7 @@ EOS
       n = opts[:num]
     end
 
-    myopts = @load_thread_opts.merge({ :when_done => (lambda do |num|
+    myopts = { :when_done => (lambda do |num|
       opts[:when_done].call(num) if opts[:when_done]
 
       if num > 0
@@ -512,7 +511,7 @@ EOS
       else
         BufferManager.flash "No matches."
       end
-    end)})
+    end)}
 
     if opts[:background] || opts[:background].nil?
       load_n_threads_background n, myopts
@@ -532,7 +531,7 @@ protected
   def add_or_unhide m
     @ts_mutex.synchronize do
       if (is_relevant?(m) || @ts.is_relevant?(m)) && !@ts.contains?(m)
-        @ts.load_thread_for_message m, @load_thread_opts
+        @ts.load_thread_for_message m
       end
     end
 
@@ -700,8 +699,8 @@ private
     [(buffer.content_width.to_f * 0.2).to_i, MIN_FROM_WIDTH].max
   end
 
-  def initialize_threads
-    @ts = ThreadSet.new Index.instance
+  def initialize_threads load_thread_opts
+    @ts = ThreadSet.new Index.instance, load_thread_opts
     @ts_mutex = Mutex.new
   end
 end
