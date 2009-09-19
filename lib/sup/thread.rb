@@ -243,8 +243,9 @@ end
 class ThreadSet
   attr_reader :num_messages
 
-  def initialize index
+  def initialize index, load_thread_opts={}
     @index = index
+    @load_thread_opts = load_thread_opts
     @num_messages = 0
     ## map from message ids to container objects
     @messages = SavingHash.new { |id| Container.new id }
@@ -319,6 +320,7 @@ class ThreadSet
 
   ## load in (at most) num number of threads from the index
   def load_n_threads num, opts={}
+    opts = @load_thread_opts.merge opts
     @index.each_id_by_date opts do |mid, builder|
       break if size >= num unless num == -1
       next if contains_id? mid
@@ -332,6 +334,7 @@ class ThreadSet
   ## loads in all messages needed to thread m
   ## may do nothing if m's thread is killed
   def load_thread_for_message m, opts={}
+    opts = @load_thread_opts.merge opts
     good = @index.each_message_in_thread_for m, opts do |mid, builder|
       next if contains_id? mid
       add_message builder.call
