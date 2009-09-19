@@ -2,9 +2,6 @@ require 'set'
 
 module Redwood
 
-## subclasses should implement:
-## - is_relevant?
-
 class ThreadIndexMode < LineCursorMode
   DATE_WIDTH = Time::TO_NICE_S_MAX_LEN
   MIN_FROM_WIDTH = 15
@@ -149,9 +146,6 @@ EOS
       b.call
     end
   end
-  
-  ## overwrite me!
-  def is_relevant? m; false; end
 
   def on_thread_update t
     #l = @lines[t] or return
@@ -162,6 +156,7 @@ EOS
   end
 
   def undo
+    unimplemented
   end
 
   def add_thread_label thread, label

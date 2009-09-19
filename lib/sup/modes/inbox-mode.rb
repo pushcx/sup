@@ -15,8 +15,6 @@ class InboxMode < ThreadIndexMode
     @@instance = self
   end
 
-  def is_relevant? m; (m.labels & [:spam, :deleted, :killed, :inbox]) == Set.new([:inbox]) end
-
   ## label-list-mode wants to be able to raise us if the user selects
   ## the "inbox" label, so we need to keep our singletonness around
   def self.instance; @@instance; end
