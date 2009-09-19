@@ -67,14 +67,14 @@ EOS
     initialize_threads load_thread_opts # defines @ts and @ts_mutex
     update # defines @text and @lines
 
-    UpdateManager.register self
-
     @last_load_more_size = nil
     to_load_more do |size|
       next if @last_load_more_size == 0
       load_threads :num => size,
                    :when_done => lambda { |num| @last_load_more_size = num }
     end
+
+    initialize_callbacks
   end
 
   def save_thread_state t
@@ -153,7 +153,7 @@ EOS
   ## overwrite me!
   def is_relevant? m; false; end
 
-  def handle_message_update sender, msgid
+  def on_message_update msgid
     m = Index.build_message msgid
     t = thread_containing(m)
     if t
@@ -379,7 +379,7 @@ EOS
   end
 
   def cleanup
-    UpdateManager.unregister self
+    @ts.cleanup
 
     if @load_thread
       @load_thread.kill 
@@ -701,6 +701,10 @@ private
   def initialize_threads load_thread_opts
     @ts = ThreadSet.new Index.instance, load_thread_opts
     @ts_mutex = Mutex.new
+  end
+
+  def initialize_callbacks
+    @ts.on_message_update { |msgid| on_message_update msgid }
   end
 end
 
