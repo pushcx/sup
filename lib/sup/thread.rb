@@ -402,7 +402,9 @@ class ThreadSet
   end
 
   def is_relevant? m
-    m.refs.any? { |ref_id| @messages.member? ref_id }
+    return true if m.refs.any? { |ref_id| @messages.member? ref_id }
+    q = @load_thread_opts.merge :msgid => m.id
+    @index.num_results_for(q) > 0
   end
 
   ## the heart of the threading code
