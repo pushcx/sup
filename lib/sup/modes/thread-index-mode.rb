@@ -148,11 +148,14 @@ EOS
   end
 
   def on_thread_update t
-    #l = @lines[t] or return
-    #update_text_for_line l
-    info "update #{t}"
-    update
-    BufferManager.draw_screen
+    if l = @lines[t]
+      update_text_for_line l
+      info "partial update on line #{l}"
+    else
+      update
+      BufferManager.draw_screen
+      info "full update"
+    end
   end
 
   def undo
