@@ -64,7 +64,7 @@ EOS
 
     @interrupt_search = false
     
-    initialize_threads load_thread_opts # defines @ts and @ts_mutex
+    initialize_threads load_thread_opts # defines @ts
     update # defines @text and @lines
 
     @last_load_more_size = nil
@@ -153,18 +153,10 @@ EOS
   ## overwrite me!
   def is_relevant? m; false; end
 
-  def on_message_update msgid
-    m = Index.build_message msgid
-    t = thread_containing(m)
-    if t
-      l = @lines[t] or return
-      m2 = @ts.message_for_id msgid
-      m2.copy_state m
-      update_text_for_line l
-    else
-      m2 = Index.build_message msgid
-      add_or_unhide m2
-    end
+  def on_thread_update t
+    #l = @lines[t] or return
+    #update_text_for_line l
+    info "update #{t}"
     update
     BufferManager.draw_screen
   end
@@ -449,7 +441,6 @@ EOS
     end
   end
 
-  ## TODO: figure out @ts_mutex in this method
   def load_n_threads n=LOAD_MORE_THREAD_NUM, opts={}
     @interrupt_search = false
     @mbid = BufferManager.say "Searching for threads..."
@@ -527,18 +518,6 @@ EOS
 
 protected
 
-  def add_or_unhide m
-    @ts_mutex.synchronize do
-      if (is_relevant?(m) || @ts.is_relevant?(m)) && !@ts.contains?(m)
-        @ts.load_thread_for_message m
-      end
-    end
-
-    update
-  end
-
-  def thread_containing m; @ts_mutex.synchronize { @ts.thread_for m } end
-
   ## used to tag threads by query. this can be made a lot more sophisticated,
   ## but for right now we'll do the obvious this.
   def thread_matches? t, query
@@ -553,7 +532,7 @@ protected
 
   def drop_all_threads
     @tags.drop_all_tags
-    initialize_threads
+    @ts.clear
     update
   end
 
@@ -700,11 +679,10 @@ private
 
   def initialize_threads load_thread_opts
     @ts = ThreadSet.new Index.instance, load_thread_opts
-    @ts_mutex = Mutex.new
   end
 
   def initialize_callbacks
-    @ts.on_message_update { |msgid| on_message_update msgid }
+    @ts.on_thread_update { |msgid| on_thread_update msgid }
   end
 end
 
