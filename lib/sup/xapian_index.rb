@@ -447,6 +447,7 @@ EOS
     end
 
     m.labels.each { |l| LabelManager << l }
+    UpdateManager.relay self, :message, m.id
     true
   end
 
