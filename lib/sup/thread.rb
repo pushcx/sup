@@ -251,6 +251,9 @@ class ThreadSet
     @messages = SavingHash.new { |id| Container.new id }
     ## map from subject strings or (or root message ids) to thread objects
     @threads = SavingHash.new { Thread.new }
+    @callbacks = {}
+
+    UpdateManager.register self
   end
 
   def message_for_id mid; @messages.member?(mid) && @messages[mid].message end
@@ -261,6 +264,18 @@ class ThreadSet
 
   def threads; @threads.values end
   def size; @threads.size end
+
+  def on_message_update &b
+    @callbacks[:message_update] = b
+  end
+
+  def handle_message_update sender, msgid
+    callback :message_update, msgid
+  end
+
+  def cleanup
+    UpdateManager.unregister self
+  end
 
   def dump f=$stdout
     @threads.each do |s, t|
@@ -420,6 +435,11 @@ class ThreadSet
 
     ## last bit
     @num_messages += 1
+  end
+
+  def callback sym, *args
+    f = @callbacks[sym] or return
+    f.call *args
   end
 end
 
