@@ -241,8 +241,6 @@ end
 ## The following invariants are maintained: every Thread has at least one
 ## Container tree, and every Container tree has at least one Message.
 class ThreadSet
-  attr_reader :num_messages
-
   def initialize index, load_thread_opts={}
     @index = index
     @load_thread_opts = load_thread_opts
@@ -253,7 +251,6 @@ class ThreadSet
   end
 
   def clear
-    @num_messages = 0
     ## map from message ids to container objects
     @messages = SavingHash.new { |id| Container.new id }
     ## map from subject strings or (or root message ids) to thread objects
@@ -447,9 +444,6 @@ class ThreadSet
       thread << root
       root.thread = thread
     end
-
-    ## last bit
-    @num_messages += 1
   end
 
   def callback sym, *args
