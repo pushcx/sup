@@ -123,6 +123,8 @@ EOS
     synchronize do
       index_message m, d, opts
     end
+
+    UpdateManager.relay self, :message, m.id
     true
   end
   private :sync_message
