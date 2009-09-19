@@ -116,7 +116,6 @@ EOS
       ## are set, and the second to show the cursor having moved
 
       update_text_for_line curpos
-      UpdateManager.relay self, :read, t.first
       when_done.call if when_done
     end
   end
@@ -156,8 +155,8 @@ EOS
   ## overwrite me!
   def is_relevant? m; false; end
 
-  def handle_message_update sender, m
-    msgid = m.id
+  def handle_message_update sender, msgid
+    m = Index.build_message msgid
     t = thread_containing(m)
     if t
       l = @lines[t] or return
@@ -178,27 +177,23 @@ EOS
   def add_thread_label thread, label
     t.first.add_label label # add only to first
     save_thread_state thread
-    UpdateManager.relay self, :message, thread.first
   end
 
   def apply_thread_label thread, label
     LabelManager << l
     t.apply_label label
     save_thread_state thread
-    UpdateManager.relay self, :message, thread.first
   end
 
   def set_thread_labels thread, labels
     labels.each { |l| LabelManager << l }
     thread.labels = labels
     save_thread_state thread
-    UpdateManager.relay self, :message, thread.first
   end
 
   def remove_thread_label thread, label
     t.remove_label label # remove from all
     save_thread_state thread
-    UpdateManager.relay self, :message, thread.first
   end
 
   def update
