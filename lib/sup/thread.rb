@@ -246,14 +246,18 @@ class ThreadSet
   def initialize index, load_thread_opts={}
     @index = index
     @load_thread_opts = load_thread_opts
+    @callbacks = {}
+    clear
+
+    UpdateManager.register self
+  end
+
+  def clear
     @num_messages = 0
     ## map from message ids to container objects
     @messages = SavingHash.new { |id| Container.new id }
     ## map from subject strings or (or root message ids) to thread objects
     @threads = SavingHash.new { Thread.new }
-    @callbacks = {}
-
-    UpdateManager.register self
   end
 
   def message_for_id mid; @messages.member?(mid) && @messages[mid].message end
@@ -265,12 +269,23 @@ class ThreadSet
   def threads; @threads.values end
   def size; @threads.size end
 
-  def on_message_update &b
-    @callbacks[:message_update] = b
+  def on_thread_update &b
+    @callbacks[:thread_update] = b
   end
 
   def handle_message_update sender, msgid
-    callback :message_update, msgid
+    m = @index.build_message msgid
+    return unless is_relevant? m
+
+    if contains_id? msgid
+      m2 = message_for_id msgid
+      m2.copy_state m
+    else
+      load_thread_for_message m
+    end
+
+    t = thread_for_id msgid
+    callback :thread_update, t
   end
 
   def cleanup
