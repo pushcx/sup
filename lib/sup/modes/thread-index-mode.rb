@@ -53,7 +53,6 @@ EOS
     super()
     @mutex = Mutex.new # covers the following variables:
     @threads = {}
-    @messages = {}
     @size_widget_width = nil
     @size_widgets = {}
     @tags = Tagger.new self
