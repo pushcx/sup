@@ -4,6 +4,13 @@ require 'ncurses'
 
 if defined? Ncurses
 module Ncurses
+  $event_read_fd, $event_write_fd = IO.pipe
+
+  def post_event
+    $event_write_fd << 'x'
+    $event_write_fd.flush
+  end
+
   def rows
     lame, lamer = [], []
     stdscr.getmaxyx lame, lamer
@@ -32,9 +39,11 @@ module Ncurses
     ## it is NECESSARY to wrap Ncurses.getch in a select() otherwise all
     ## background threads will be BLOCKED. (except in very modern versions
     ## of libncurses-ruby. the current one on ubuntu seems to work well.)
-    if IO.select([$stdin], nil, nil, 0.5)
-      c = Ncurses.getch
-    end
+    read_fds, = IO.select([$stdin, $event_read_fd], nil, nil, 0.5)
+    return unless read_fds
+
+    $event_read_fd.readpartial 1024 if read_fds.member? $event_read_fd
+    Ncurses.getch if read_fds.member? $stdin
   end
 
   ## pretends ctrl-c's are ctrl-g's
@@ -44,7 +53,7 @@ module Ncurses
     KEY_CANCEL
   end
 
-  module_function :rows, :cols, :curx, :nonblocking_getch, :safe_nonblocking_getch, :mutex, :sync
+  module_function :rows, :cols, :curx, :nonblocking_getch, :safe_nonblocking_getch, :mutex, :sync, :post_event
 
   remove_const :KEY_ENTER
   remove_const :KEY_CANCEL
