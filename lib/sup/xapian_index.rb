@@ -27,6 +27,8 @@ EOS
     super
 
     @index_mutex = Monitor.new
+    @update_queue = Queue.new
+    @update_thread = Redwood::reporting_thread("index update") { update_thread }
   end
 
   def load_index
@@ -48,6 +50,9 @@ EOS
   end
 
   def save_index
+    @update_queue << :die
+    @update_thread.join
+    @xapian.flush
   end
 
   def optimize
@@ -92,6 +97,11 @@ EOS
   def add_message m; sync_message m, true end
   def update_message m; sync_message m, true end
   def update_message_state m; sync_message m, false end
+
+  def update_message_state_async m
+    info "queuing #{m.id}"
+    @update_queue.enq m
+  end
 
   def num_results_for query={}
     xapian_query = build_xapian_query query
@@ -565,6 +575,14 @@ EOS
       PREFIX[type.to_s] + args[0][0...(MAX_TERM_LENGTH-1)]
     else
       raise "Invalid term type #{type}"
+    end
+  end
+
+  def update_thread
+    while m = @update_queue.deq
+      return if m == :die
+      info "saving message #{m.id}"
+      update_message_state m
     end
   end
 
