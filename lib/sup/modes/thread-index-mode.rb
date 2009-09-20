@@ -92,9 +92,9 @@ EOS
 
   def drop_obsolete
     @mutex.synchronize do
-      @threads.reject! { |t| t.obsolete? }
+      @ts.drop_obsolete
     end
-    regen_text
+    update
   end
 
   ## open up a thread view window

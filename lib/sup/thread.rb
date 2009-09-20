@@ -259,6 +259,10 @@ class ThreadSet
     @threads = SavingHash.new { Thread.new }
   end
 
+  def drop_obsolete
+    @threads.reject! { |k,t| t.obsolete? }
+  end
+
   def message_for_id mid; @messages.member?(mid) && @messages[mid].message end
   def thread_for_id mid; @messages.member?(mid) && @messages[mid].root.thread end
   def contains_id? id; @messages.member?(id) && !@messages[id].empty? end
