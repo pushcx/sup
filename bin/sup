@@ -224,6 +224,8 @@ begin
       nil
     end
 
+    UpdateManager.dequeue_all
+
     if c.nil?
       if BufferManager.sigwinch_happened?
         debug "redrawing screen on sigwinch"
