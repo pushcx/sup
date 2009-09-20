@@ -168,10 +168,9 @@ EOS
   def actually_thread_update t
     if l = @lines[t]
       update_text_for_line l
-      info "partial update on line #{l}"
     else
+      # XXX optimize
       update
-      info "full update"
     end
     BufferManager.draw_screen
   end

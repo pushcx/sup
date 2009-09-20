@@ -101,7 +101,6 @@ EOS
   def update_message_state m; sync_message m end
 
   def update_message_state_async m
-    info "queuing #{m.id}"
     @update_queue.enq m
   end
 
@@ -577,7 +576,6 @@ EOS
   def update_thread
     while m = @update_queue.deq
       return if m == :die
-      info "saving message #{m.id}"
       update_message_state m
     end
   end
