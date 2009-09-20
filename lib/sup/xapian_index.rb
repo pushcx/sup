@@ -27,6 +27,8 @@ EOS
     super
 
     @index_mutex = Monitor.new
+    @update_queue = Queue.new
+    @update_thread = Redwood::reporting_thread("index update") { update_thread }
   end
 
   def load_index
@@ -50,6 +52,9 @@ EOS
   end
 
   def save_index
+    @update_queue << :die
+    @update_thread.join
+    @xapian.flush
   end
 
   def optimize
@@ -95,6 +100,11 @@ EOS
   def update_message m; sync_message m end
   def update_message_state m; sync_message m end
 
+  def update_message_state_async m
+    info "queuing #{m.id}"
+    @update_queue.enq m
+  end
+
   def sync_message m, opts={}
     entry = synchronize { get_entry m.id }
     snippet = m.snippet
@@ -124,6 +134,8 @@ EOS
       index_message m, d, opts
     end
 
+    # This sucks because now the UI is being modified in the async update
+    # thread. We probably want to use actors.
     UpdateManager.relay self, :message, m.id
     true
   end
@@ -561,6 +573,14 @@ EOS
       PREFIX[type.to_s] + args[0][0...(MAX_TERM_LENGTH-1)]
     else
       raise "Invalid term type #{type}"
+    end
+  end
+
+  def update_thread
+    while m = @update_queue.deq
+      return if m == :die
+      info "saving message #{m.id}"
+      update_message_state m
     end
   end
 

@@ -161,9 +161,9 @@ EOS
       info "partial update on line #{l}"
     else
       update
-      BufferManager.draw_screen
       info "full update"
     end
+    BufferManager.draw_screen
   end
 
   def undo
@@ -171,7 +171,7 @@ EOS
   end
 
   def add_thread_label thread, label
-    t.first.add_label label # add only to first
+    thread.first.add_label label # add only to first
     save_thread_state thread
   end
 

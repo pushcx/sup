@@ -191,7 +191,7 @@ class Message
 
   def save_state index
     return unless @dirty
-    index.update_message_state self
+    index.update_message_state_async self
     @dirty = false
     true
   end
