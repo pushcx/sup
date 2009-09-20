@@ -168,8 +168,8 @@ EOS
   end
 
   def apply_thread_label thread, label
-    LabelManager << l
-    t.apply_label label
+    LabelManager << label
+    thread.apply_label label
     save_thread_state thread
   end
 
@@ -180,7 +180,7 @@ EOS
   end
 
   def remove_thread_label thread, label
-    t.remove_label label # remove from all
+    thread.remove_label label # remove from all
     save_thread_state thread
   end
 
@@ -219,36 +219,31 @@ EOS
   def toggle_starred 
     t = cursor_thread or return
     actually_toggle_label t, :starred, true
-    update_text_for_line curpos
     cursor_down
   end
 
   def multi_toggle_starred threads
     threads.each { |t| actually_toggle_label t, :starred, true }
-    regen_text
   end
 
   def toggle_archived 
     t = cursor_thread or return
     actually_toggle_label t, :inbox, false
-    update_text_for_line curpos
+    cursor_down
   end
 
   def multi_toggle_archived threads
     threads.each { |t| actually_toggle_label t, :inbox, false }
-    regen_text
   end
 
   def toggle_new
     t = cursor_thread or return
     actually_toggle_label t, :unread, false
-    update_text_for_line curpos
     cursor_down
   end
 
   def multi_toggle_new threads
     threads.each { |t| actually_toggle_label t, :unread, false }
-    regen_text
   end
 
   def multi_toggle_tagged threads
@@ -288,16 +283,8 @@ EOS
     HookManager.run("mark-as-spam", :thread => t)
   end
 
-  ## both spam and deleted have the curious characteristic that you
-  ## always want to hide the thread after either applying or removing
-  ## that label. in all thread-index-views except for
-  ## label-search-results-mode, when you mark a message as spam or
-  ## deleted, you want it to disappear immediately; in LSRM, you only
-  ## see deleted or spam emails, and when you undelete or unspam them
-  ## you also want them to disappear immediately.
   def multi_toggle_spam threads
     threads.each { |t| actually_toggle_label t, :spam, false }
-    regen_text
   end
 
   def toggle_deleted
@@ -305,10 +292,8 @@ EOS
     multi_toggle_deleted [t]
   end
 
-  ## see comment for multi_toggle_spam
   def multi_toggle_deleted threads
     threads.each { |t| actually_toggle_label t, :deleted, false }
-    regen_text
   end
 
   def kill
@@ -319,7 +304,6 @@ EOS
   ## m-m-m-m-MULTI-KILL
   def multi_kill threads
     threads.each { |t| actually_toggle_label t, :killed, false }
-    regen_text
     BufferManager.flash "#{threads.size.pluralize 'thread'} killed."
   end
 
@@ -337,8 +321,6 @@ EOS
 
     new_labels = Set.new(keepl) + user_labels
     set_thread_labels thread, new_labels
-
-    update_text_for_line curpos
   end
 
   def multi_edit_labels threads
@@ -364,8 +346,6 @@ EOS
         end
       end
     end
-
-    regen_text
   end
 
   def cleanup
@@ -651,6 +631,7 @@ protected
       [
       [subj_color, size_widget_text],
       [:to_me_color, t.labels.member?(:attachment) ? "@" : " "],
+      [:obsolete_color, t.obsolete? ? "x" : " "],
       [:to_me_color, dp ? ">" : (p ? '+' : " ")],
     ] +
       (t.labels - @hidden_labels).map { |label| [:label_color, "#{label} "] } +
