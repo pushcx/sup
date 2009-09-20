@@ -221,6 +221,7 @@ begin
     UpdateManager.dequeue_all
 
     if c.nil?
+      UpdateManager.relay self, :tick
       if BufferManager.sigwinch_happened?
         debug "redrawing screen on sigwinch"
         BufferManager.completely_redraw_screen
