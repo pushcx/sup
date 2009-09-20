@@ -134,9 +134,7 @@ EOS
       index_message m, d, opts
     end
 
-    # This sucks because now the UI is being modified in the async update
-    # thread. We probably want to use actors.
-    UpdateManager.relay self, :message, m.id
+    UpdateManager.enqueue self, :message, m.id
     true
   end
   private :sync_message
