@@ -27,11 +27,11 @@ class DraftManager
     my_message
   end
 
+  # XXX replace with label
   def discard m
     raise ArgumentError, "not a draft: source id #{m.source.id.inspect}, should be #{DraftManager.source_id.inspect} for #{m.id.inspect}" unless m.source.id.to_i == DraftManager.source_id
     Index.delete m.id
     File.delete @source.fn_for_offset(m.source_info)
-    UpdateManager.relay self, :single_message_deleted, m
   end
 end
 
