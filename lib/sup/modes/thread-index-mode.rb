@@ -72,7 +72,6 @@ EOS
                    :when_done => lambda { |num| @last_load_more_size = num }
     end
 
-    initialize_callbacks
     UpdateManager.register self
   end
 
@@ -156,13 +155,14 @@ EOS
     end
   end
 
-  def on_thread_update t
+  def handle_thread_update sender, t
+    return unless sender == @ts
     actually_thread_update @last_t if @last_t && t != @last_t
     @last_t = t
   end
 
   def handle_tick_update sender
-    on_thread_update nil
+    handle_thread_update @ts, nil
   end
 
   def actually_thread_update t
@@ -676,10 +676,6 @@ private
 
   def initialize_threads load_thread_opts
     @ts = ThreadSet.new Index.instance, load_thread_opts
-  end
-
-  def initialize_callbacks
-    @ts.on_thread_update { |msgid| on_thread_update msgid }
   end
 end
 

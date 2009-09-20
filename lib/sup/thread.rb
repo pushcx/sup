@@ -246,7 +246,6 @@ class ThreadSet
   def initialize index, load_thread_opts={}
     @index = index
     @load_thread_opts = load_thread_opts
-    @callbacks = {}
     clear
 
     UpdateManager.register self
@@ -272,10 +271,6 @@ class ThreadSet
   def threads; @threads.values end
   def size; @threads.size end
 
-  def on_thread_update &b
-    @callbacks[:thread_update] = b
-  end
-
   def handle_message_update sender, msgid
     m = @index.build_message msgid
     return unless is_relevant? m or contains_id? msgid
@@ -289,7 +284,7 @@ class ThreadSet
       t = thread_for_id(msgid)
     end
 
-    callback :thread_update, t
+    UpdateManager.enqueue self, :thread, t
   end
 
   def cleanup
@@ -461,11 +456,6 @@ class ThreadSet
       thread << root
       root.thread = thread
     end
-  end
-
-  def callback sym, *args
-    f = @callbacks[sym] or return
-    f.call *args
   end
 end
 
