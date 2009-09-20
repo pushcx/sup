@@ -165,6 +165,7 @@ EOS
     handle_thread_update @ts, nil
   end
 
+  ## TODO don't update unless obsolete? has changed
   def actually_thread_update t
     if l = @lines[t]
       update_text_for_line l
@@ -180,24 +181,32 @@ EOS
   end
 
   def add_thread_label thread, label
+    l = @lines[thread] or fail
     thread.first.add_label label # add only to first
+    update_text_for_line l
     save_thread_state thread
   end
 
   def apply_thread_label thread, label
+    l = @lines[thread] or fail
     LabelManager << label
     thread.apply_label label
+    update_text_for_line l
     save_thread_state thread
   end
 
   def set_thread_labels thread, labels
+    l = @lines[thread] or fail
     labels.each { |l| LabelManager << l }
     thread.labels = labels
+    update_text_for_line l
     save_thread_state thread
   end
 
   def remove_thread_label thread, label
+    l = @lines[thread] or fail
     thread.remove_label label # remove from all
+    update_text_for_line l
     save_thread_state thread
   end
 
