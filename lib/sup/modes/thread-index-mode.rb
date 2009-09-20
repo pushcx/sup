@@ -73,6 +73,7 @@ EOS
     end
 
     initialize_callbacks
+    UpdateManager.register self
   end
 
   def save_thread_state t
@@ -156,6 +157,15 @@ EOS
   end
 
   def on_thread_update t
+    actually_thread_update @last_t if @last_t && t != @last_t
+    @last_t = t
+  end
+
+  def handle_tick_update sender
+    on_thread_update nil
+  end
+
+  def actually_thread_update t
     if l = @lines[t]
       update_text_for_line l
       info "partial update on line #{l}"
@@ -358,6 +368,7 @@ EOS
 
   def cleanup
     @ts.cleanup
+    UpdateManager.unregister self
 
     if @load_thread
       @load_thread.kill 
