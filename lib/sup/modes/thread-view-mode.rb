@@ -263,11 +263,10 @@ EOS
     new_labels = BufferManager.ask_for_labels :label, "Labels for thread: ", @thread.labels
 
     return unless new_labels
+    new_labels.each { |l| LabelManager << l }
     @thread.labels = Set.new(reserved_labels) + new_labels
     save_state
-    new_labels.each { |l| LabelManager << l }
     update
-    UpdateManager.relay self, :labeled, @thread.first
   end
 
   def toggle_starred
@@ -291,7 +290,6 @@ EOS
     ## TODO: don't recalculate EVERYTHING just to add a stupid little
     ## star to the display
     update
-    UpdateManager.relay self, :single_message_labeled, m
   end
 
   ## called when someone presses enter when the cursor is highlighting
@@ -484,7 +482,6 @@ EOS
     dispatch op do
       @thread.remove_label :inbox
       save_state
-      UpdateManager.relay self, :archived, @thread.first
     end
   end
 
@@ -492,7 +489,6 @@ EOS
     dispatch op do
       @thread.apply_label :spam
       save_state
-      UpdateManager.relay self, :spammed, @thread.first
     end
   end
 
@@ -500,7 +496,6 @@ EOS
     dispatch op do
       @thread.apply_label :deleted
       save_state
-      UpdateManager.relay self, :deleted, @thread.first
     end
   end
 
@@ -508,7 +503,6 @@ EOS
     dispatch op do
       @thread.apply_label :unread
       save_state
-      UpdateManager.relay self, :unread, @thread.first
     end
   end
 

@@ -163,7 +163,6 @@ EOS
   ## does the gui callback stuff, etc.
   def add_new_message m
     Index.add_message m
-    UpdateManager.relay self, :added, m
   end
 end
 
