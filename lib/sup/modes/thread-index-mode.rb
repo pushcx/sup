@@ -44,6 +44,7 @@ EOS
     k.add :apply_to_tagged, "Apply next command to all tagged threads", '+', '='
     k.add :join_threads, "Force tagged threads to be joined into the same thread", '#'
     k.add :undo, "Undo the previous action", 'u'
+    k.add :drop_obsolete, "Remove obsolete threads", '%'
   end
 
   def initialize hidden_labels=[], load_thread_opts={}
@@ -86,6 +87,13 @@ EOS
     drop_all_threads
     BufferManager.draw_screen
     load_threads :num => buffer.content_height
+  end
+
+  def drop_obsolete
+    @mutex.synchronize do
+      @threads.reject! { |t| t.obsolete? }
+    end
+    regen_text
   end
 
   ## open up a thread view window
