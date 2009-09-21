@@ -108,9 +108,24 @@ EOS
     matchset.matches_estimated
   end
 
-  def is_relevant_to_query? m, query
-    q = query.merge :msgid => m.id
-    num_results_for(q) > 0
+  def is_relevant_to_query? m, q
+    # avoid hitting the database in the common case
+    if is_simple_query? q
+      labels = ([q[:label]] + (q[:labels] || [])).compact
+      neglabels = [:spam, :deleted, :killed].reject { |l| (labels.include? l) || q.member?("load_#{l}".intern) }
+      return false if labels.any? { |l| !m.has_label? l }
+      return false if neglabels.any? { |l| m.has_label? l }
+      true
+    else
+      num_results_for(query.merge :msgid => m.id) > 0
+    end
+  end
+
+  ## Can message relevance be determined without Xapian?
+  def is_simple_query? q
+    # everything except qobj could be implemented above, but they're not used
+    # often enough to merit the risk of bugs
+    not [:qobj, :source_id, :participants, :msgid].any? { |x| q.member? x }
   end
 
   EACH_ID_PAGE = 100
