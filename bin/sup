@@ -139,6 +139,7 @@ Index.lock_interactively or exit
 begin
   Redwood::start
   Index.load
+  Index.start_async_update_thread
 
   $die = false
   trap("TERM") { |x| $die = true }

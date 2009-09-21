@@ -76,7 +76,7 @@ EOS
   end
 
   def save_thread_state t
-    t.save_state Index
+    t.save_state_async Index
   end
 
   def lines; @text.length; end
