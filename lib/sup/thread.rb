@@ -408,8 +408,7 @@ class ThreadSet
   end
 
   def is_relevant_to_query? m
-    q = @load_thread_opts.merge :msgid => m.id
-    @index.num_results_for(q) > 0
+    @index.is_relevant_to_query? m, @load_thread_opts
   end
 
   ## TODO optimize
