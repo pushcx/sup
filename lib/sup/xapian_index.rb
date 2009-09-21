@@ -28,6 +28,9 @@ EOS
 
     @index_mutex = Monitor.new
     @update_queue = Queue.new
+  end
+
+  def start_async_update_thread
     @update_thread = Redwood::reporting_thread("index update") { update_thread }
   end
 
@@ -51,7 +54,7 @@ EOS
 
   def save_index
     @update_queue << :die
-    @update_thread.join
+    @update_thread.join if @update_thread
     @xapian.flush
   end
 
