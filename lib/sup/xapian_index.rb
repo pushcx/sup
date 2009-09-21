@@ -108,6 +108,11 @@ EOS
     matchset.matches_estimated
   end
 
+  def is_relevant_to_query? m, query
+    q = query.merge :msgid => m.id
+    num_results_for(q) > 0
+  end
+
   EACH_ID_PAGE = 100
   def each_id query={}
     offset = 0
