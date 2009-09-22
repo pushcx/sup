@@ -120,7 +120,7 @@ EOS
       return false if neglabels.any? { |l| m.has_label? l }
       true
     else
-      num_results_for(query.merge :msgid => m.id) > 0
+      num_results_for(q.merge :msgid => m.id) > 0
     end
   end
 
