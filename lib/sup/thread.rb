@@ -261,6 +261,11 @@ class ThreadSet
 
   def drop_obsolete
     @threads.reject! { |k,t| t.obsolete? }
+
+    # XXX optimize
+    seen = Set.new
+    @threads.each { |t| t.each { |m,d,p| seen << m if m } }
+    @messages.reject! { |k,m| !seen.member? m }
   end
 
   def message_for_id mid; @messages.member?(mid) && @messages[mid].message end
@@ -274,13 +279,13 @@ class ThreadSet
 
   def handle_message_update sender, msgid
     m = @index.build_message msgid
-    return unless is_relevant? m or contains_id? msgid
 
     if t = thread_for_id(msgid)
       m2 = message_for_id msgid
       m2.copy_state m
       t.obsolete = !is_thread_relevant?(t)
     else
+      return unless is_relevant? m
       load_thread_for_message m
       t = thread_for_id(msgid)
     end
