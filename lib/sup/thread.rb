@@ -339,20 +339,6 @@ class ThreadSet
   end
   private :prune_thread_of
 
-  def remove_id mid
-    return unless @messages.member?(mid)
-    c = @messages[mid]
-    remove_container c
-    prune_thread_of c
-  end
-
-  def remove_thread_containing_id mid
-    return unless @messages.member?(mid)
-    c = @messages[mid]
-    t = c.root.thread
-    @threads.delete_if { |key, thread| t == thread }
-  end
-
   ## load in (at most) num number of threads from the index
   def load_n_threads num, opts={}
     opts = @load_thread_opts.merge opts
@@ -375,12 +361,6 @@ class ThreadSet
       add_message builder.call
     end
     add_message m if good
-  end
-
-  ## merges in a pre-loaded thread
-  def add_thread t
-    raise "duplicate" if @threads.values.member? t
-    t.each { |m, *o| add_message m }
   end
 
   ## merges two threads together. both must be members of this threadset.
