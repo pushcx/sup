@@ -167,12 +167,16 @@ EOS
 
   ## TODO don't update unless obsolete? has changed
   def actually_thread_update t
+		# XXX XXX optimize
+		drop_obsolete
+=begin
     if l = @lines[t]
       update_text_for_line l
     else
       # XXX optimize
       update
     end
+=end
     BufferManager.draw_screen
   end
 
