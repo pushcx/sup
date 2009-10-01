@@ -157,18 +157,21 @@ EOS
 
   def handle_thread_update sender, t
     return unless sender == @ts
+    actually_thread_update t
+=begin
     actually_thread_update @last_t if @last_t && t != @last_t
     @last_t = t
+=end
   end
 
   def handle_tick_update sender
-    handle_thread_update @ts, nil
+    #handle_thread_update @ts, nil
   end
 
   ## TODO don't update unless obsolete? has changed
   def actually_thread_update t
-		# XXX XXX optimize
-		drop_obsolete
+    # XXX XXX optimize
+    drop_obsolete
 =begin
     if l = @lines[t]
       update_text_for_line l
