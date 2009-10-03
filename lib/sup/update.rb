@@ -26,6 +26,7 @@ class UpdateManager
   def enqueue sender, type, *args
     @lock.synchronize { @queue << [sender, type, args] }
     Ncurses.post_event if defined? Ncurses
+    debug "enqueued #{([type] + args) * ' '}"
   end
 
   def dequeue_all
@@ -41,6 +42,7 @@ class UpdateManager
   end
 
   def relay sender, type, *args
+    debug "relaying #{([type] + args) * ' '}" unless type == :tick
     meth = "handle_#{type}_update".intern
     @targets.keys.each { |o| o.send meth, sender, *args unless o == sender if o.respond_to? meth }
   end
