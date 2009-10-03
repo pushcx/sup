@@ -258,16 +258,16 @@ class ThreadSet
   end
 
   def drop_irrelevant
-    @threads.select { |k,t| !is_thread_relevant? t }.each { |k,t| info "dropping thread #{t}" }
-    @threads.reject! { |k,t| !is_thread_relevant? t }
-
-    # XXX optimize
-    seen = Set.new
-    info "looking through messages..."
-    @threads.each { |tid,t| t.each { |m,d,p| (info "saw message #{m.id}"; seen << m.id) if m } }
-    info seen.inspect
-    @messages.select { |k,m| !seen.member?(m.id) }.each { |k,m| info "dropping message #{m.id}" }
-    @messages.reject! { |k,m| !seen.member?(m.id) }
+    @threads.each do |k,t|
+      next if is_thread_relevant? t
+      debug "dropping thread #{t}"
+      @threads.delete k
+      t.each do |m,d,p|
+        next unless m
+        debug "dropping message #{m.id}"
+        @messages.delete m.id
+      end
+    end
   end
 
   def message_for_id mid; @messages.member?(mid) && @messages[mid].message end
