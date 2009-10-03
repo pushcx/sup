@@ -171,16 +171,17 @@ EOS
 
   ## TODO don't update unless relevant? has changed
   def actually_thread_update t
-    # XXX XXX optimize
-    drop_irrelevant
-=begin
     if l = @lines[t]
-      update_text_for_line l
+      if !@ts.is_thread_relevant?(t)
+        # XXX optimize
+        drop_irrelevant
+      else
+        update_text_for_line l
+      end
     else
       # XXX optimize
       update
     end
-=end
     BufferManager.draw_screen
   end
 
