@@ -157,20 +157,17 @@ EOS
 
   def handle_thread_update sender, t
     return unless sender == @ts
-    debug "updating thread #{t}"
-    actually_thread_update t
-=begin
     actually_thread_update @last_t if @last_t && t != @last_t
     @last_t = t
-=end
   end
 
   def handle_tick_update sender
-    #handle_thread_update @ts, nil
+    handle_thread_update @ts, nil
   end
 
   ## TODO don't update unless relevant? has changed
   def actually_thread_update t
+    debug "updating thread #{t}"
     if l = @lines[t]
       if !@ts.is_thread_relevant?(t)
         # XXX optimize
