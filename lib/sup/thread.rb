@@ -32,13 +32,11 @@ class Thread
   include Enumerable
 
   attr_reader :containers
-  bool_accessor :obsolete
   def initialize
     ## ah, the joys of a multithreaded application with a class called
     ## "Thread". i keep instantiating the wrong one...
     raise "wrong Thread class, buddy!" if block_given?
     @containers = []
-    @obsolete = false
   end
 
   def << c
@@ -259,13 +257,17 @@ class ThreadSet
     @threads = SavingHash.new { Thread.new }
   end
 
-  def drop_obsolete
-    @threads.reject! { |k,t| t.obsolete? }
+  def drop_irrelevant
+    @threads.select { |k,t| !is_thread_relevant? t }.each { |k,t| info "dropping thread #{t}" }
+    @threads.reject! { |k,t| !is_thread_relevant? t }
 
     # XXX optimize
     seen = Set.new
-    @threads.each { |t| t.each { |m,d,p| seen << m if m } }
-    @messages.reject! { |k,m| !seen.member? m }
+    info "looking through messages..."
+    @threads.each { |tid,t| t.each { |m,d,p| (info "saw message #{m.id}"; seen << m.id) if m } }
+    info seen.inspect
+    @messages.select { |k,m| !seen.member?(m.id) }.each { |k,m| info "dropping message #{m.id}" }
+    @messages.reject! { |k,m| !seen.member?(m.id) }
   end
 
   def message_for_id mid; @messages.member?(mid) && @messages[mid].message end
@@ -279,15 +281,17 @@ class ThreadSet
 
   def handle_message_update sender, msgid
     m = @index.build_message msgid
+    debug "processing message #{msgid}, new labels=#{m.labels.to_a * ','}, member=#{@messages.member? msgid}, contains=#{contains_id? msgid}"
 
     if t = thread_for_id(msgid)
       m2 = message_for_id msgid
+      debug "updating state, old labels=#{m2.labels.to_a * ','}"
       m2.copy_state m
-      t.obsolete = !is_thread_relevant?(t)
     else
-      return unless is_relevant? m
+      (debug "irrelevant"; return) unless is_relevant? m
       load_thread_for_message m
       t = thread_for_id(msgid)
+      debug "loaded thread"
     end
 
     UpdateManager.enqueue self, :thread, t
@@ -390,7 +394,7 @@ class ThreadSet
   end
 
   def is_relevant? m
-    m.refs.any? { |ref_id| @messages.member? ref_id } or is_relevant_to_query? m
+    @messages.member? m.id or m.refs.any? { |ref_id| @messages.member? ref_id } or is_relevant_to_query? m
   end
 
   def is_relevant_to_query? m

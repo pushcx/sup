@@ -44,7 +44,7 @@ EOS
     k.add :apply_to_tagged, "Apply next command to all tagged threads", '+', '='
     k.add :join_threads, "Force tagged threads to be joined into the same thread", '#'
     k.add :undo, "Undo the previous action", 'u'
-    k.add :drop_obsolete, "Remove obsolete threads", '%'
+    k.add :drop_irrelevant, "Remove irrelevant threads", '%'
   end
 
   def initialize hidden_labels=[], load_thread_opts={}
@@ -89,9 +89,9 @@ EOS
     load_threads :num => buffer.content_height
   end
 
-  def drop_obsolete
+  def drop_irrelevant
     @mutex.synchronize do
-      @ts.drop_obsolete
+      @ts.drop_irrelevant
     end
     update
   end
@@ -157,6 +157,7 @@ EOS
 
   def handle_thread_update sender, t
     return unless sender == @ts
+    debug "updating thread #{t}"
     actually_thread_update t
 =begin
     actually_thread_update @last_t if @last_t && t != @last_t
@@ -168,10 +169,10 @@ EOS
     #handle_thread_update @ts, nil
   end
 
-  ## TODO don't update unless obsolete? has changed
+  ## TODO don't update unless relevant? has changed
   def actually_thread_update t
     # XXX XXX optimize
-    drop_obsolete
+    drop_irrelevant
 =begin
     if l = @lines[t]
       update_text_for_line l
@@ -671,7 +672,7 @@ protected
       [
       [subj_color, size_widget_text],
       [:to_me_color, t.labels.member?(:attachment) ? "@" : " "],
-      [:obsolete_color, t.obsolete? ? "x" : " "],
+      [:irrelevant_color, !@ts.is_thread_relevant?(t) ? "x" : " "],
       [:to_me_color, dp ? ">" : (p ? '+' : " ")],
     ] +
       (t.labels - @hidden_labels).map { |label| [:label_color, "#{label} "] } +
