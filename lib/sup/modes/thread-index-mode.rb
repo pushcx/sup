@@ -51,9 +51,9 @@ EOS
     super()
     @mutex = Mutex.new # covers the following variables:
     @threads = {}
-    @size_widget_width = nil
-    @size_widgets = {}
+    @size_widget_width = 5
     @tags = Tagger.new self
+    @text_for_threads = SavingHash.new { |t| generate_text_for_thread t }
 
     ## these guys, and @text and @lines, are not covered
     @load_thread = nil
@@ -220,8 +220,6 @@ EOS
     @mutex.synchronize do
       ## let's see you do THIS in python
       @threads = @ts.threads.sort_by { |t| [t.date, t.first.id] }.reverse
-      @size_widgets = @threads.map { |t| size_widget_for_thread t }
-      @size_widget_width = @size_widgets.max_of { |w| w.display_length }
     end
 
     regen_text
@@ -549,22 +547,8 @@ protected
 
   def update_text_for_line l
     return unless l # not sure why this happens, but it does, occasionally
-    
-    need_update = false
-
-    @mutex.synchronize do
-      @size_widgets[l] = size_widget_for_thread @threads[l]
-
-      ## if the widget size has increased, we need to redraw everyone
-      need_update = @size_widgets[l].size > @size_widget_width
-    end
-
-    if need_update
-      update
-    else
-      @text[l] = text_for_thread_at l
-      buffer.mark_dirty if buffer
-    end
+    @text[l] = text_for_thread_at l
+    buffer.mark_dirty if buffer
   end
 
   def regen_text
@@ -606,9 +590,9 @@ protected
   end
 
   AUTHOR_LIMIT = 5
-  def text_for_thread_at line
-    t, size_widget = @mutex.synchronize { [@threads[line], @size_widgets[line]] }
-
+  def generate_text_for_thread t
+    fail "thread is nil" unless t
+    size_widget = size_widget_for_thread t
     date = t.date.to_nice_s
 
     starred = t.has_label? :starred
@@ -678,6 +662,12 @@ protected
       [subj_color, t.subj + (t.subj.empty? ? "" : " ")],
       [:snippet_color, snippet],
     ]
+  end
+
+  def text_for_thread_at line
+    t = @mutex.synchronize { @threads[line] }
+    (debug "t is nil at line #{line}"; return) unless t
+    @text_for_threads[t]
   end
 
 private
