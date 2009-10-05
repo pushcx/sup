@@ -44,7 +44,7 @@ EOS
     k.add :apply_to_tagged, "Apply next command to all tagged threads", '+', '='
     k.add :join_threads, "Force tagged threads to be joined into the same thread", '#'
     k.add :undo, "Undo the previous action", 'u'
-    k.add :drop_irrelevant, "Remove irrelevant threads", '%'
+    k.add :drop_irrelevant, "Remove irrelevant threads", 'z'
   end
 
   def initialize hidden_labels=[], load_thread_opts={}
