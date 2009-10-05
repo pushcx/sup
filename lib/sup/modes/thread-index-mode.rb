@@ -118,7 +118,7 @@ EOS
       ## the first draw_screen is needed before topline and botline
       ## are set, and the second to show the cursor having moved
 
-      update_text_for_line curpos
+      update_thread t
       when_done.call if when_done
     end
   end
@@ -157,7 +157,7 @@ EOS
 
   def handle_thread_update sender, t
     return unless sender == @ts
-    actually_thread_update @last_t if @last_t && t != @last_t
+    update_thread @last_t if @last_t && t != @last_t
     @last_t = t
   end
 
@@ -165,64 +165,34 @@ EOS
     handle_thread_update @ts, nil
   end
 
-  ## TODO don't update unless relevant? has changed
-  def actually_thread_update t
-    debug "updating thread #{t}"
-    if l = @lines[t]
-      if !@ts.is_thread_relevant?(t)
-        # XXX optimize
-        drop_irrelevant
-      else
-        update_text_for_line l
-      end
-    else
-      # XXX optimize
-      update
-    end
-    BufferManager.draw_screen
-  end
-
   def undo
     unimplemented
   end
 
   def add_thread_label thread, label
-    line = @lines[thread] or fail
     thread.first.add_label label # add only to first
-    update_text_for_line line
+    update_thread thread
     save_thread_state thread
   end
 
   def apply_thread_label thread, label
-    line = @lines[thread] or fail
     LabelManager << label
     thread.apply_label label
-    update_text_for_line line
+    update_thread thread
     save_thread_state thread
   end
 
   def set_thread_labels thread, labels
-    line = @lines[thread] or fail
     labels.each { |label| LabelManager << label }
     thread.labels = labels
-    update_text_for_line line
+    update_thread thread
     save_thread_state thread
   end
 
   def remove_thread_label thread, label
-    line = @lines[thread] or fail
     thread.remove_label label # remove from all
-    update_text_for_line line
+    update_thread thread
     save_thread_state thread
-  end
-
-  def update
-    @mutex.synchronize do
-      ## let's see you do THIS in python
-      @threads = @ts.threads.sort_by { |t| [t.date, t.first.id] }.reverse
-    end
-
-    regen_text
   end
 
   def edit_message
@@ -278,7 +248,7 @@ EOS
 
   def multi_toggle_tagged threads
     @mutex.synchronize { @tags.drop_all_tags }
-    regen_text
+    regen_text #XXX
   end
 
   def join_threads
@@ -398,7 +368,7 @@ EOS
   def toggle_tagged
     t = cursor_thread or return
     @mutex.synchronize { @tags.toggle_tag_for t }
-    update_text_for_line curpos
+    update_thread t
     cursor_down
   end
   
@@ -545,13 +515,37 @@ protected
     update
   end
 
-  def update_text_for_line l
-    return unless l # not sure why this happens, but it does, occasionally
-    @text[l] = text_for_thread_at l
-    buffer.mark_dirty if buffer
+  # TODO remove irrelevant threads
+  def update_thread t
+    debug "updating thread #{t}"
+    invalidate_text_for_thread t
+    if @threads.member? t
+      if @ts.is_thread_relevant? t
+        line = @lines[t] or fail
+        @text[line] = @text_for_threads[t]
+        buffer.mark_dirty if buffer
+      else
+        # XXX optimize
+        # @mutex.synchronize { @ts.drop_irrelevant }
+        update
+      end
+    else
+      # XXX optimize
+      update
+    end
+  end
+
+  def update
+    @mutex.synchronize do
+      ## let's see you do THIS in python
+      @threads = @ts.threads.sort_by { |t| [t.date, t.first.id] }.reverse
+    end
+
+    regen_text
   end
 
   def regen_text
+    @text_for_threads.clear
     threads = @mutex.synchronize { @threads }
     @text = threads.map_with_index { |t, i| text_for_thread_at i }
     @lines = threads.map_with_index { |t, i| [t, i] }.to_h
@@ -662,6 +656,10 @@ protected
       [subj_color, t.subj + (t.subj.empty? ? "" : " ")],
       [:snippet_color, snippet],
     ]
+  end
+
+  def invalidate_text_for_thread t
+    @text_for_threads.delete t
   end
 
   def text_for_thread_at line
