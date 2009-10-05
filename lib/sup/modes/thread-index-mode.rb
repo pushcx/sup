@@ -533,6 +533,7 @@ protected
       # XXX optimize
       update
     end
+    BufferManager.draw_screen
   end
 
   def update
