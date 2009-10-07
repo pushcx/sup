@@ -520,15 +520,9 @@ protected
     debug "updating thread #{t}"
     invalidate_text_for_thread t
     if @threads.member? t
-      if @ts.is_thread_relevant? t
-        line = @lines[t] or fail
-        @text[line] = @text_for_threads[t]
-        buffer.mark_dirty if buffer
-      else
-        # XXX optimize
-        # @mutex.synchronize { @ts.drop_irrelevant }
-        update
-      end
+      line = @lines[t] or fail
+      @text[line] = @text_for_threads[t]
+      buffer.mark_dirty if buffer
     else
       # XXX optimize
       update
