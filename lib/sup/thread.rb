@@ -283,8 +283,7 @@ class ThreadSet
     m = @index.build_message msgid
     debug "processing message #{msgid}, new labels=#{m.labels.to_a * ','}, member=#{@messages.member? msgid}, contains=#{contains_id? msgid}"
 
-    if t = thread_for_id(msgid)
-      m2 = message_for_id msgid
+    if (t = thread_for_id(msgid)) and (m2 = message_for_id msgid)
       debug "updating state, old labels=#{m2.labels.to_a * ','}"
       m2.copy_state m
     else
