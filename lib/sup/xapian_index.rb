@@ -113,7 +113,7 @@ EOS
 
   def is_relevant_to_query? m, q
     # avoid hitting the database in the common case
-    if false or is_simple_query? q
+    if is_simple_query? q
       labels = ([q[:label]] + (q[:labels] || [])).compact
       neglabels = [:spam, :deleted, :killed].reject { |l| (labels.include? l) || q.member?("load_#{l}".intern) }
       return false if labels.any? { |l| !m.has_label? l }
