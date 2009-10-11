@@ -85,6 +85,7 @@ global_keymap = Keymap.new do |k|
   k.add :recall_draft, "Edit most recent draft message", 'R'
   k.add :show_inbox, "Show the Inbox buffer", 'I'
   k.add :show_console, "Show the Console buffer", '~'
+  k.add :undo, "Undo the previous action", 'u'
 end
 
 ## the following magic enables wide characters when used with a ruby
@@ -321,6 +322,8 @@ begin
     when :nothing, InputSequenceAborted
     when :redraw
       bm.completely_redraw_screen
+    when :undo
+      UndoManager.undo
     else
       bm.flash "Unknown keypress '#{c.to_character}' for #{bm.focus_buf.mode.name}."
     end

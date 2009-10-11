@@ -115,6 +115,15 @@ class Thread
   def save_state index; each { |m, *o| m && m.save_state(index) }; end
   def save_state_async index; each { |m, *o| m && m.save_state_async(index) }; end
 
+  def register_undo_action desc=nil
+    UndoManager.register desc do |action|
+      each do |m, *o|
+        next unless m
+        action.add m.id, m.labels.dup
+      end
+    end
+  end
+
   def direct_participants
     map { |m, *o| [m.from] + m.to if m }.flatten.compact.uniq
   end

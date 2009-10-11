@@ -43,7 +43,6 @@ EOS
     k.add :tag_matching, "Tag matching threads", 'g'
     k.add :apply_to_tagged, "Apply next command to all tagged threads", '+', '='
     k.add :join_threads, "Force tagged threads to be joined into the same thread", '#'
-    k.add :undo, "Undo the previous action", 'u'
     k.add :drop_irrelevant, "Remove irrelevant threads", 'z'
   end
 
@@ -165,11 +164,8 @@ EOS
     handle_thread_update @ts, nil
   end
 
-  def undo
-    unimplemented
-  end
-
   def add_thread_label thread, label
+    thread.register_undo_action
     thread.first.add_label label # add only to first
     update_thread thread
     save_thread_state thread
@@ -177,6 +173,7 @@ EOS
 
   def apply_thread_label thread, label
     LabelManager << label
+    thread.register_undo_action
     thread.apply_label label
     update_thread thread
     save_thread_state thread
@@ -184,12 +181,14 @@ EOS
 
   def set_thread_labels thread, labels
     labels.each { |label| LabelManager << label }
+    thread.register_undo_action
     thread.labels = labels
     update_thread thread
     save_thread_state thread
   end
 
   def remove_thread_label thread, label
+    thread.register_undo_action
     thread.remove_label label # remove from all
     update_thread thread
     save_thread_state thread

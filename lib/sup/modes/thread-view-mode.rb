@@ -131,6 +131,7 @@ EOS
     @layout[latest].state = :open if @layout[latest].state == :closed
     @layout[earliest].state = :detailed if earliest.has_label?(:unread) || @thread.size == 1
 
+    @thread.register_undo_action
     @thread.remove_label :unread
     save_state
     regen_text
@@ -265,6 +266,7 @@ EOS
 
     return unless new_labels
     new_labels.each { |l| LabelManager << l }
+    @thread.register_undo_action
     @thread.labels = Set.new(reserved_labels) + new_labels
     save_state
     update
