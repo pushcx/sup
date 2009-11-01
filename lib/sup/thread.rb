@@ -413,7 +413,7 @@ class ThreadSet
 
   ## TODO optimize
   def is_thread_relevant? t
-    t.any? { |m,d,p| m.is_a? Message and is_relevant_to_query? m }
+    t.any? { |m,d,p| m and m != :fake_root and is_relevant_to_query? m }
   end
 
   ## the heart of the threading code
