@@ -402,7 +402,9 @@ class ThreadSet
   end
 
   def is_relevant? m
-    @messages.member? m.id or m.refs.any? { |ref_id| @messages.member? ref_id } or is_relevant_to_query? m
+    @messages.member? m.id or
+      (m.refs+m.replytos).any? { |ref_id| @messages.member? ref_id } or
+      is_relevant_to_query? m
   end
 
   def is_relevant_to_query? m
