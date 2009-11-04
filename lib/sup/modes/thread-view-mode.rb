@@ -132,6 +132,7 @@ EOS
     @layout[earliest].state = :detailed if earliest.has_label?(:unread) || @thread.size == 1
 
     @thread.remove_label :unread
+    Index.save_thread @thread
     regen_text
   end
 
@@ -263,6 +264,7 @@ EOS
     new_labels.each { |l| LabelManager << l }
     update
     UpdateManager.relay self, :labeled, @thread.first
+    Index.save_thread @thread
   end
 
   def toggle_starred
@@ -285,6 +287,7 @@ EOS
     ## star to the display
     update
     UpdateManager.relay self, :single_message_labeled, m
+    Index.save_thread @thread
   end
 
   ## called when someone presses enter when the cursor is highlighting
@@ -503,6 +506,7 @@ EOS
     dispatch op do
       @thread.remove_label :inbox
       UpdateManager.relay self, :archived, @thread.first
+      Index.save_thread @thread
     end
   end
 
@@ -510,6 +514,7 @@ EOS
     dispatch op do
       @thread.apply_label :spam
       UpdateManager.relay self, :spammed, @thread.first
+      Index.save_thread @thread
     end
   end
 
@@ -517,6 +522,7 @@ EOS
     dispatch op do
       @thread.apply_label :deleted
       UpdateManager.relay self, :deleted, @thread.first
+      Index.save_thread @thread
     end
   end
 
@@ -524,6 +530,7 @@ EOS
     dispatch op do
       @thread.apply_label :unread
       UpdateManager.relay self, :unread, @thread.first
+      Index.save_thread @thread
     end
   end
 
