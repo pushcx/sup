@@ -262,7 +262,7 @@ EOS
     @thread.labels = Set.new(reserved_labels) + new_labels
     new_labels.each { |l| LabelManager << l }
     update
-    UpdateManager.relay self, :labeled, @thread.first
+    UpdateManager.enqueue self, :labeled, @thread.first
   end
 
   def toggle_starred
@@ -284,7 +284,7 @@ EOS
     ## TODO: don't recalculate EVERYTHING just to add a stupid little
     ## star to the display
     update
-    UpdateManager.relay self, :single_message_labeled, m
+    UpdateManager.enqueue self, :single_message_labeled, m
   end
 
   ## called when someone presses enter when the cursor is highlighting
@@ -502,28 +502,28 @@ EOS
   def archive_and_then op
     dispatch op do
       @thread.remove_label :inbox
-      UpdateManager.relay self, :archived, @thread.first
+      UpdateManager.enqueue self, :archived, @thread.first
     end
   end
 
   def spam_and_then op
     dispatch op do
       @thread.apply_label :spam
-      UpdateManager.relay self, :spammed, @thread.first
+      UpdateManager.enqueue self, :spammed, @thread.first
     end
   end
 
   def delete_and_then op
     dispatch op do
       @thread.apply_label :deleted
-      UpdateManager.relay self, :deleted, @thread.first
+      UpdateManager.enqueue self, :deleted, @thread.first
     end
   end
 
   def unread_and_then op
     dispatch op do
       @thread.apply_label :unread
-      UpdateManager.relay self, :unread, @thread.first
+      UpdateManager.enqueue self, :unread, @thread.first
     end
   end
 

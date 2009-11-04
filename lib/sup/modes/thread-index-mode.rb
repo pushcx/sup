@@ -117,7 +117,7 @@ EOS
       ## are set, and the second to show the cursor having moved
 
       update_text_for_line curpos
-      UpdateManager.relay self, :read, t.first
+      UpdateManager.enqueue self, :read, t.first
       when_done.call if when_done
     end
   end
@@ -246,18 +246,18 @@ EOS
     pos = curpos
     if t.has_label? :starred # if ANY message has a star
       t.remove_label :starred # remove from all
-      UpdateManager.relay self, :unstarred, t.first
+      UpdateManager.enqueue self, :unstarred, t.first
       lambda do
         t.first.add_label :starred
-        UpdateManager.relay self, :starred, t.first
+        UpdateManager.enqueue self, :starred, t.first
         regen_text
       end
     else
       t.first.add_label :starred # add only to first
-      UpdateManager.relay self, :starred, t.first
+      UpdateManager.enqueue self, :starred, t.first
       lambda do
         t.remove_label :starred
-        UpdateManager.relay self, :unstarred, t.first
+        UpdateManager.enqueue self, :unstarred, t.first
         regen_text
       end
     end
@@ -283,19 +283,19 @@ EOS
     pos = curpos
     if t.has_label? :inbox
       t.remove_label :inbox
-      UpdateManager.relay self, :archived, t.first
+      UpdateManager.enqueue self, :archived, t.first
       lambda do
         thread.apply_label :inbox
         update_text_for_line pos
-        UpdateManager.relay self,:unarchived, thread.first
+        UpdateManager.enqueue self,:unarchived, thread.first
       end
     else
       t.apply_label :inbox
-      UpdateManager.relay self, :unarchived, t.first
+      UpdateManager.enqueue self, :unarchived, t.first
       lambda do
         thread.remove_label :inbox
         update_text_for_line pos
-        UpdateManager.relay self, :unarchived, thread.first
+        UpdateManager.enqueue self, :unarchived, thread.first
       end
     end
   end
@@ -306,20 +306,20 @@ EOS
     if t.has_label? :spam
       t.remove_label :spam
       add_or_unhide t.first
-      UpdateManager.relay self, :unspammed, t.first
+      UpdateManager.enqueue self, :unspammed, t.first
       lambda do
         thread.apply_label :spam
         self.hide_thread thread
-        UpdateManager.relay self,:spammed, thread.first
+        UpdateManager.enqueue self,:spammed, thread.first
       end
     else
       t.apply_label :spam
       hide_thread t
-      UpdateManager.relay self, :spammed, t.first
+      UpdateManager.enqueue self, :spammed, t.first
       lambda do
         thread.remove_label :spam
         add_or_unhide thread.first
-        UpdateManager.relay self,:unspammed, thread.first
+        UpdateManager.enqueue self,:unspammed, thread.first
       end
     end
   end
@@ -329,20 +329,20 @@ EOS
     if t.has_label? :deleted
       t.remove_label :deleted
       add_or_unhide t.first
-      UpdateManager.relay self, :undeleted, t.first
+      UpdateManager.enqueue self, :undeleted, t.first
       lambda do
         t.apply_label :deleted
         hide_thread t
-        UpdateManager.relay self, :deleted, t.first
+        UpdateManager.enqueue self, :deleted, t.first
       end
     else
       t.apply_label :deleted
       hide_thread t
-      UpdateManager.relay self, :deleted, t.first
+      UpdateManager.enqueue self, :deleted, t.first
       lambda do
         t.remove_label :deleted
         add_or_unhide t.first
-        UpdateManager.relay self, :undeleted, t.first
+        UpdateManager.enqueue self, :undeleted, t.first
       end
     end
   end
@@ -542,10 +542,10 @@ EOS
     UndoManager.register "labeling thread" do
       thread.labels = old_labels
       update_text_for_line pos
-      UpdateManager.relay self, :labeled, thread.first
+      UpdateManager.enqueue self, :labeled, thread.first
     end
 
-    UpdateManager.relay self, :labeled, thread.first
+    UpdateManager.enqueue self, :labeled, thread.first
   end
 
   def multi_edit_labels threads
@@ -570,7 +570,7 @@ EOS
           LabelManager << l
         end
       end
-      UpdateManager.relay self, :labeled, t.first
+      UpdateManager.enqueue self, :labeled, t.first
     end
 
     regen_text
@@ -578,7 +578,7 @@ EOS
     UndoManager.register "labeling #{threads.size.pluralize 'thread'}" do
       threads.zip(old_labels).map do |t, old_labels|
         t.labels = old_labels
-        UpdateManager.relay self, :labeled, t.first
+        UpdateManager.enqueue self, :labeled, t.first
       end
       regen_text
     end
