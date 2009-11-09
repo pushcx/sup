@@ -427,7 +427,7 @@ EOS
     UndoManager.register "marking/unmarking  #{threads.size.pluralize 'thread'} as spam",
                          undos, lambda { regen_text }
     regen_text
-    threads.each { Index.save_thread async t }
+    threads.each { Index.save_thread t }
   end
 
   def toggle_deleted
@@ -441,7 +441,7 @@ EOS
     UndoManager.register "deleting/undeleting #{threads.size.pluralize 'thread'}",
                          undos, lambda { regen_text }
     regen_text
-    threads.each { Index.save_thread async t }
+    threads.each { Index.save_thread t }
   end
 
   def kill
@@ -466,7 +466,7 @@ EOS
 
     regen_text
     BufferManager.flash "#{threads.size.pluralize 'thread'} killed."
-    threads.each { |t| Index.save_thread async t }
+    threads.each { |t| Index.save_thread t }
   end
 
   def cleanup
